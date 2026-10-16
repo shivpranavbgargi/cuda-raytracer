@@ -9,7 +9,9 @@
 
 Implementation of a ray tracer using NVIDIA CUDA.
 
-## Sample .ppm image using CUDA
+## Sample .ppm image
+
+[image.ppm](src/iamge.ppm)
 
 ![Sample .ppm image](docs/images/image.jpg)
 
