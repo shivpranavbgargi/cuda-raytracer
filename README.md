@@ -2,13 +2,14 @@
 
 - [Abstract](#abstract)
 - [Hardware and Software](#hardware-and-software)
+- [Sample .ppm image using CUDA](#sample-.ppm-image-using-cuda)
 - [References](#references)
 
 ## Abstract
 
 Implementation of a ray tracer using NVIDIA CUDA.
 
-## Generating a .ppm image
+## Sample .ppm image using CUDA
 
 ![Sample .ppm image](docs/images/image.jpg)
 
