@@ -8,6 +8,10 @@
 
 Implementation of a ray tracer using NVIDIA CUDA.
 
+## Generating a .ppm image
+
+![Sample .ppm image](docs/images/image.jpg)
+
 ## Hardware and Software
 
 - **OS:** Arch Linux
