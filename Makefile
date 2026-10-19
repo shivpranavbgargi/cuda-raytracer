@@ -1,12 +1,17 @@
 NVCC = nvcc
+GPP = g++
 OUTDIR = bin
 CFLAGS = -O3
 SRC = src/main.cu
-TARGET = $(OUTDIR)/main
+SRC_C = src/main.cpp
+TARGET = $(OUTDIR)/$(GPU_BIN)
+DEBUG_TARGET = $(OUTDIR)/$(DEBUG_GPU_BIN)
+CPU_TARGET = $(OUTDIR)/$(CPU_BIN)
 
 .PHONY: all clean
 
-all: $(TARGET)
+all: $(TARGET) $(DEBUG_TARGET) $(CPU_TARGET)
+debug: $(DEBUG_TARGET)
 
 $(OUTDIR):
 	mkdir -p $@
@@ -14,6 +19,11 @@ $(OUTDIR):
 $(TARGET): $(SRC) | $(OUTDIR)
 	$(NVCC) $(CFLAGS) $(SRC) -o $@ -I./include/
 
-clean:
-	rm -rf $(OUTDIR)
+$(DEBUG_TARGET): $(SRC) | $(OUTDIR)
+	$(NVCC) $(CFLAGS) $(SRC) -o $@ -I./include/ -DDEBUG
 
+$(CPU_TARGET): $(SRC_C) | $(OUTDIR)
+	$(GPP) $(CFLAGS) $(SRC_C) -o $@ -I./include/
+
+clean:
+	rm -rf $(OUTDIR) $(DEBUG_TARGET)
