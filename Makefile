@@ -1,7 +1,8 @@
 NVCC = nvcc
 GPP = g++
 OUTDIR = bin
-CFLAGS = -O3
+CPU_CFLAGS = -O3
+GPU_CFLAGS = -O3 -lineinfo
 SRC = src/main.cu
 SRC_C = src/main.cpp
 TARGET = $(OUTDIR)/$(GPU_BIN)
@@ -17,13 +18,13 @@ $(OUTDIR):
 	mkdir -p $@
 
 $(TARGET): $(SRC) | $(OUTDIR)
-	$(NVCC) $(CFLAGS) $(SRC) -o $@ -I./include/
+	$(NVCC) $(GPU_CFLAGS) $(SRC) -o $@ -I./include/
 
 $(DEBUG_TARGET): $(SRC) | $(OUTDIR)
-	$(NVCC) $(CFLAGS) $(SRC) -o $@ -I./include/ -DDEBUG
+	$(NVCC) $(GPU_CFLAGS) $(SRC) -o $@ -I./include/ -DDEBUG
 
 $(CPU_TARGET): $(SRC_C) | $(OUTDIR)
-	$(GPP) $(CFLAGS) $(SRC_C) -o $@ -I./include/
+	$(GPP) $(CPU_CFLAGS) $(SRC_C) -o $@ -I./include/
 
 clean:
 	rm -rf $(OUTDIR) $(DEBUG_TARGET)
