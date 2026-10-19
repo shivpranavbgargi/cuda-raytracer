@@ -140,6 +140,6 @@ int main() {
     fprintf(f, "P6\n%d %d\n255\n", W, H);
     fwrite(image.data(), 1, image.size(), f);
     fclose(f);
-    printf("Wrote image.ppm (%dx%d)\n", W, H);
+    printf("Wrote cpu_image.ppm (%dx%d)\n", W, H);
     return 0;
 }

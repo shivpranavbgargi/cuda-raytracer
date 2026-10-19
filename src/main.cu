@@ -184,7 +184,7 @@ void gen_scene(int W, int H) {
   }
   fwrite(hPpmChar, 1, 3 * W * H * sizeof(unsigned char), f);
   fclose(f);
-  printf("Wrote image.ppm (%dx%d)\n", W, H);
+  printf("Wrote gpu_image.ppm (%dx%d)\n", W, H);
 }
 
 int main() {
