@@ -13,8 +13,8 @@ __global__ void cuda_gen_gradient(int W, int H, int *out) {
   int y = blockDim.y * blockIdx.y + threadIdx.y;
   int outIdx = 3 * ((y * W) + x);
   if (y < H && x < W) {
-    auto r = double(x) / (W - 1);
-    auto g = double(y) / (H - 1);
+    auto r = float(x) / (W - 1);
+    auto g = float(y) / (H - 1);
     auto b = 0.0;
     auto pixel =
         vec3(r, g, b); // TODO: Check if malloc outside and fill here is faster?
@@ -44,6 +44,74 @@ void gen_ppm(int W, int H, int *dPpm, int *hPpm) {
   }
 }
 
+__host__ __device__ inline float hitSphere(const sphere &s, const vec3 origin,
+                                            vec3 dir) {
+  vec3 oc = origin - s.center;
+  float a = dot(dir, dir);
+  float b = 2.0f * dot(oc, dir);
+  float c = dot(oc, oc) - s.radius * s.radius;
+  float disc = b * b - 4 * a * c;
+  if (disc < 0)
+    return -1.0f;                         // no real solution -> miss
+  float t = (-b - std::sqrt(disc)) / (2 * a); // nearest intersection
+  return (t > 0.001f) ? t : -1.0f;
+}
+
+__host__ __device__ inline int closestHit(vec3 origin, vec3 dir, float &tHit,
+                                          sphere *scene, int size) {
+  int best = -1;
+  float closest = 1e30f;
+  // for (int i = 0; i < (int)scene.size(); i++) {
+  for (int i = 0; i < size; i++) {
+    float t = hitSphere(scene[i], origin, dir);
+    if (t > 0 && t < closest) {
+      closest = t;
+      best = i;
+    }
+  }
+  tHit = closest;
+  return best;
+}
+
+__host__ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, sphere *scene) {
+  // TRY IT: move the light around and see how shading/shadows change.
+  // x = right, y = up, z = toward the camera.
+  vec3 lightPos(4, 6, 2);
+  float tHit;
+  int hit = closestHit(origin, dir, tHit, scene, 4);
+
+  if (hit < 0) {
+    // Miss: draw a simple sky gradient (white near horizon -> blue up top).
+    float t = 0.5f * (dir.y() + 1.0f);
+    return vec3(1, 1, 1) * (1 - t) + vec3(0.4f, 0.6f, 1.0f) * t;
+  }
+
+  // The point we hit, and the surface normal there.
+  vec3 p = origin + dir * tHit;
+  vec3 n = normalize(p - scene[hit].center);
+
+  // Base color: checkerboard for the floor, solid color otherwise.
+  vec3 base = scene[hit].color;
+  if (scene[hit].isFloor) {
+    int cx = (int)floor(p.x()), cz = (int)floor(p.z());
+    bool white = ((cx + cz) & 1) == 0;
+    base = white ? vec3(0.9f, 0.9f, 0.9f) : vec3(0.2f, 0.2f, 0.2f);
+  }
+
+  // Diffuse lighting: how directly does the surface face the light?
+  vec3 toLight = normalize(lightPos - p);
+  float diffuse = fmaxf(0.0f, dot(n, toLight));
+
+  // Hard shadow: shoot a ray toward the light; if it hits something, we're
+  // shadowed.
+  float shadowT;
+  int blocked = closestHit(p + n * 0.001f, toLight, shadowT, scene, 4);
+  float shade = (blocked >= 0) ? 0.3f : 1.0f;
+
+  float brightness = 0.15f + diffuse * shade; // 0.15 = a little ambient light
+  return base * brightness;
+}
+
 __global__ void gen_scene_kernel(int W, int H, sphere *scene, int *out) {
 
   int px = blockDim.x * blockIdx.x + threadIdx.x;
@@ -59,7 +127,7 @@ __global__ void gen_scene_kernel(int W, int H, sphere *scene, int *out) {
   }
 #endif
   if (py < H && px < W) {
-    float u = (2.0f * (px + 0.5f) / W - 1.0f) * (double)(W / H);
+    float u = (2.0f * (px + 0.5f) / W - 1.0f) * (float)W / H;
     float v = (1.0f - 2.0f * (py + 0.5f) / H);
 
     vec3 cameraPos = vec3(0, 1, 3);
@@ -109,10 +177,10 @@ void gen_scene(int W, int H) {
   FILE *f = fopen("../results/gpu_image.ppm", "wb");
   fprintf(f, "P6\n%d %d\n255\n", W, H);
   for (int i = 0; i < (W * H); i++) {
-    int base_idx = 3 * i;
-    hPpmChar[base_idx] = (unsigned char)hPpm[base_idx];
-    hPpmChar[base_idx + 1] = (unsigned char)hPpm[base_idx + 1];
-    hPpmChar[base_idx + 2] = (unsigned char)hPpm[base_idx + 2];
+    int pixel_idx = 3 * i;
+    hPpmChar[pixel_idx] = (unsigned char)hPpm[pixel_idx];
+    hPpmChar[pixel_idx + 1] = (unsigned char)hPpm[pixel_idx + 1];
+    hPpmChar[pixel_idx + 2] = (unsigned char)hPpm[pixel_idx + 2];
   }
   fwrite(hPpmChar, 1, 3 * W * H * sizeof(unsigned char), f);
   fclose(f);
