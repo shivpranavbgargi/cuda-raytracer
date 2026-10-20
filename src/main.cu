@@ -45,14 +45,14 @@ void gen_ppm(int W, int H, int *dPpm, int *hPpm) {
 }
 
 __host__ __device__ inline float hitSphere(const sphere &s, const vec3 origin,
-                                            vec3 dir) {
+                                           vec3 dir) {
   vec3 oc = origin - s.center;
   float a = dot(dir, dir);
   float b = 2.0f * dot(oc, dir);
   float c = dot(oc, oc) - s.radius * s.radius;
   float disc = b * b - 4 * a * c;
   if (disc < 0)
-    return -1.0f;                         // no real solution -> miss
+    return -1.0f;                             // no real solution -> miss
   float t = (-b - std::sqrt(disc)) / (2 * a); // nearest intersection
   return (t > 0.001f) ? t : -1.0f;
 }
@@ -61,7 +61,6 @@ __host__ __device__ inline int closestHit(vec3 origin, vec3 dir, float &tHit,
                                           sphere *scene, int size) {
   int best = -1;
   float closest = 1e30f;
-  // for (int i = 0; i < (int)scene.size(); i++) {
   for (int i = 0; i < size; i++) {
     float t = hitSphere(scene[i], origin, dir);
     if (t > 0 && t < closest) {
@@ -167,9 +166,25 @@ void gen_scene(int W, int H) {
   const int TY = 16;
   dim3 block(TX, TY, 1);
   dim3 grid((W + TX - 1) / TX, (H + TY - 1) / TY, 1);
+
+  cudaEvent_t start, stop;
+  cudaEventCreate(&start);
+  cudaEventCreate(&stop);
+  cudaEventRecord(start, 0);
+
   gen_scene_kernel<<<grid, block>>>(W, H, dScene, dPpm);
-  cudaDeviceSynchronize(); // redundant but good practice
-  cudaMemcpy(hPpm, dPpm, 3 * H * W * sizeof(int), cudaMemcpyDeviceToHost);
+
+  cudaEventRecord(stop, 0);
+  cudaEventSynchronize(stop);
+
+  cudaMemcpy(hPpm, dPpm, 3 * H * W * sizeof(int),
+             cudaMemcpyDeviceToHost); // this takes care of sync, no need of CDS
+
+  float milliseconds = 0;
+  cudaEventElapsedTime(&milliseconds, start, stop);
+  printf("Kernel Execution Time: %f ms\n", milliseconds);
+  cudaEventDestroy(start);
+  cudaEventDestroy(stop);
 
   unsigned char *hPpmChar =
       (unsigned char *)malloc(3 * H * W * sizeof(unsigned char));
