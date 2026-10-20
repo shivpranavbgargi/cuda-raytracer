@@ -2,7 +2,8 @@ NVCC = nvcc
 GPP = g++
 OUTDIR = bin
 CPU_CFLAGS = -O3
-GPU_CFLAGS = -O3 -lineinfo
+GPU_CFLAGS = -O3
+DEBUG_FLAGS = -O3 -lineinfo
 SRC = src/main.cu
 SRC_C = src/main.cpp
 TARGET = $(OUTDIR)/$(GPU_BIN)
@@ -21,7 +22,7 @@ $(TARGET): $(SRC) | $(OUTDIR)
 	$(NVCC) $(GPU_CFLAGS) $(SRC) -o $@ -I./include/
 
 $(DEBUG_TARGET): $(SRC) | $(OUTDIR)
-	$(NVCC) $(GPU_CFLAGS) $(SRC) -o $@ -I./include/ -DDEBUG
+	$(NVCC) $(DEBUG_FLAGS) $(SRC) -o $@ -I./include/ -DDEBUG
 
 $(CPU_TARGET): $(SRC_C) | $(OUTDIR)
 	$(GPP) $(CPU_CFLAGS) $(SRC_C) -o $@ -I./include/
