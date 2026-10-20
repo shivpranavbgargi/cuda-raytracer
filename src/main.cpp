@@ -15,6 +15,8 @@
 #include <cstdio>
 #include <cmath>
 #include <vector>
+#include <iostream>
+#include <chrono>
 
 // ---- A tiny 3D vector, used for points, directions, and colors (r,g,b) -----
 struct Vec3 {
@@ -118,6 +120,7 @@ int main() {
     float aspect = (float)W / H;
 
     // For every pixel, build a ray from the camera and compute its color.
+    auto start = std::chrono::high_resolution_clock::now();
     for (int py = 0; py < H; py++) {
         for (int px = 0; px < W; px++) {
             // Map pixel (px,py) to a direction through the image plane.
@@ -134,6 +137,9 @@ int main() {
             image[idx + 2] = (unsigned char)(std::fmin(color.z, 1.0f) * 255);
         }
     }
+    auto end = std::chrono::high_resolution_clock::now();
+    auto duration = std::chrono::duration<double, std::milli>(end - start);
+    std::cout << "Execution time: " << duration.count() << " ms\n";
 
     // Write a PPM image file (a very simple image format).
     FILE* f = fopen("../results/cpu_image.ppm", "wb");
