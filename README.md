@@ -11,9 +11,9 @@ Implementation of a ray tracer using NVIDIA CUDA.
 
 ## Sample .ppm image
 
-[image.ppm](src/image.ppm)
+[image.ppm](docs/images/gpu_image.ppm)
 
-![Sample .ppm image](docs/images/image.jpg)
+![Sample .ppm image](docs/images/gpu_image.jpg)
 
 ## Hardware and Software
 
