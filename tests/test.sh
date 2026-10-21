@@ -9,7 +9,8 @@ pushd "bin" || exit
 echo ""
 echo "EXECUTING"
 echo "---------"
-./"${CPU_BIN}" && ./"${GPU_BIN}"
+ls
+./"${CPU_BIN}" 3840 2160 && ./"${GPU_BIN}" 3840 2160
 popd || exit
 pushd "results" || exit
 

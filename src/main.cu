@@ -167,24 +167,34 @@ void gen_scene(int W, int H) {
   dim3 block(TX, TY, 1);
   dim3 grid((W + TX - 1) / TX, (H + TY - 1) / TY, 1);
 
+#ifdef DEBUG
+  // Warm up runs (maybe too many iters)
+  for (int i = 0; i < 10; i++) {
+    gen_scene_kernel<<<grid, block>>>(W, H, dScene, dPpm);
+  }
+  cudaDeviceSynchronize();
+
+  const unsigned N = 100;
+  float milliseconds = 0;
   cudaEvent_t start, stop;
   cudaEventCreate(&start);
   cudaEventCreate(&stop);
   cudaEventRecord(start, 0);
-
-  gen_scene_kernel<<<grid, block>>>(W, H, dScene, dPpm);
-
+  for (int i = 0; i < N; i++) {
+    gen_scene_kernel<<<grid, block>>>(W, H, dScene, dPpm);
+  }
   cudaEventRecord(stop, 0);
   cudaEventSynchronize(stop);
-
-  cudaMemcpy(hPpm, dPpm, 3 * H * W * sizeof(int),
-             cudaMemcpyDeviceToHost); // this takes care of sync, no need of CDS
-
-  float milliseconds = 0;
   cudaEventElapsedTime(&milliseconds, start, stop);
-  printf("Kernel Execution Time: %f ms\n", milliseconds);
+  printf("Kernel Execution Time (Avg over %d iterations): %f ms\n", N,
+         milliseconds / N);
   cudaEventDestroy(start);
   cudaEventDestroy(stop);
+#endif
+
+  gen_scene_kernel<<<grid, block>>>(W, H, dScene, dPpm);
+  cudaMemcpy(hPpm, dPpm, 3 * H * W * sizeof(int),
+             cudaMemcpyDeviceToHost); // this takes care of sync, no need of CDS
 
   unsigned char *hPpmChar =
       (unsigned char *)malloc(3 * H * W * sizeof(unsigned char));
@@ -202,7 +212,7 @@ void gen_scene(int W, int H) {
   printf("Wrote gpu_image.ppm (%dx%d)\n", W, H);
 }
 
-int main() {
+int main(int argc, char **argv) {
   // const int W = 256;
   // const int H = 256;
   //
@@ -216,7 +226,12 @@ int main() {
   // cudaFree(dPpm);
   // free(hPpm);
 
-  const int W = 3840, H = 2160;
+  if (argc != 3) {
+    std::cout << "Usage: " << argv[0] << " <width> <height>" << endl;
+    std::cout << "Example: " << argv[0] << " 1920 1080" << endl;
+    return 1;
+  }
+  const int W = atoi(argv[1]), H = atoi(argv[2]);
   gen_scene(W, H);
   return 0;
 }
