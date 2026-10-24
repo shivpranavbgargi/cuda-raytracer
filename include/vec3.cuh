@@ -38,9 +38,7 @@ public:
 
   __host__ __device__ vec3 &operator/=(float t) { return *this *= 1 / t; }
 
-  __host__ __device__ float length() const {
-    return sqrt(length_squared());
-  }
+  __host__ __device__ float length() const { return sqrt(length_squared()); }
 
   __host__ __device__ float length_squared() const {
     return e[0] * e[0] + e[1] * e[1] + e[2] * e[2];
@@ -82,7 +80,7 @@ __host__ __device__ inline float dot(const vec3 &u, const vec3 &v) {
 }
 
 __host__ __device__ inline vec3 normalize(const vec3 &u) {
-  return u * (1.0f / (float)sqrt(dot(u, u)));
+  return u * (1.0f / std::sqrt(dot(u, u)));
 }
 
 __host__ inline vec3 cross(const vec3 &u, const vec3 &v) {
