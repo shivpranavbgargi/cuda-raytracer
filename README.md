@@ -9,11 +9,23 @@
 
 Implementation of a ray tracer using NVIDIA CUDA.
 
-## Sample .ppm image
+---
 
-[gpu_image.ppm](docs/images/gpu_image.ppm)
+## Sample .ppm image using CUDA
 
-![Sample .ppm image](docs/images/gpu_image.jpg)
+### V1 (Shadows)
+
+[v1_gpu_image.ppm](docs/images/v1_gpu_image.ppm)
+
+![v1 .ppm image](docs/images/v1_gpu_image.jpg)
+
+### V2 (Reflection - Single Bounce)
+
+[v2_gpu_image.ppm](docs/images/v2_gpu_image.ppm)
+
+![v2 .ppm image](docs/images/v2_gpu_image.jpg)
+
+---
 
 ## Hardware and Software
 
