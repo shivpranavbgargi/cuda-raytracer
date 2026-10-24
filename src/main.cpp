@@ -122,7 +122,7 @@ Vec3 rayColor(Vec3 origin, Vec3 dir) {
 }
 
 int main(int argc, char **argv) {
-  
+
   if (argc != 3) {
     std::cout << "Usage: " << argv[0] << " <width> <height>" << std::endl;
     std::cout << "Example: " << argv[0] << " 1920 1080" << std::endl;
@@ -160,7 +160,11 @@ int main(int argc, char **argv) {
   std::cout << "Execution time: " << duration.count() << " ms\n";
 
   // Write a PPM image file (a very simple image format).
-  FILE *f = fopen("../results/cpu_image.ppm", "wb");
+  // const char* value = std::getenv("OUTDIR");
+  char filePath[255];
+  snprintf(filePath, sizeof(filePath), "%s/cpu_image.ppm",
+           std::getenv("OUTDIR"));
+  FILE *f = fopen(filePath, "wb");
   fprintf(f, "P6\n%d %d\n255\n", W, H);
   fwrite(image.data(), 1, image.size(), f);
   fclose(f);

@@ -27,8 +27,8 @@ __global__ void cuda_gen_gradient(int W, int H, int *out) {
 
 void gen_ppm(int W, int H, int *dPpm, int *hPpm) {
   // TODO: Test perf for different TX/TY
-  const int TX = 16;
-  const int TY = 16;
+  const int TX = 8;
+  const int TY = 8;
   dim3 block(TX, TY, 1);
   dim3 grid((W + TX - 1) / TX, (H + TY - 1) / TY, 1);
 
@@ -199,7 +199,10 @@ void gen_scene(int W, int H) {
   unsigned char *hPpmChar =
       (unsigned char *)malloc(3 * H * W * sizeof(unsigned char));
 
-  FILE *f = fopen("../results/gpu_image.ppm", "wb");
+  char filePath[255];
+  snprintf(filePath, sizeof(filePath), "%s/gpu_image.ppm",
+           std::getenv("OUTDIR"));
+  FILE *f = fopen(filePath, "wb");
   fprintf(f, "P6\n%d %d\n255\n", W, H);
   for (int i = 0; i < (W * H); i++) {
     int pixel_idx = 3 * i;
