@@ -143,8 +143,7 @@ __global__ void gen_scene_kernel(int W, int H, sphere *scene, int *out) {
     vec3 cameraPos = vec3(0, 1, 3);
     vec3 dir = normalize(vec3(u, v, -1.5f));
 
-    // vec3 color = rayColor(cameraPos, dir, scene[0]);
-    vec3 color = rayColor(cameraPos, dir, scene, 1);
+    vec3 color = rayColor(cameraPos, dir, scene, 2);
 
     auto r = (int)(fminf(color.x(), 1.0f) * 255);
     auto g = (int)(fminf(color.y(), 1.0f) * 255);
@@ -227,19 +226,6 @@ void gen_scene(int W, int H) {
 }
 
 int main(int argc, char **argv) {
-  // const int W = 256;
-  // const int H = 256;
-  //
-  // int *hPpm, *dPpm;
-  // hPpm = (int *)malloc(3 * H * W * sizeof(int));
-  // cudaMalloc(&dPpm, 3 * H * W * sizeof(int));
-  //
-  // // TODO: Tic-toc it
-  // gen_ppm(W, H, dPpm, hPpm);
-  //
-  // cudaFree(dPpm);
-  // free(hPpm);
-
   if (argc != 3) {
     std::cout << "Usage: " << argv[0] << " <width> <height>" << endl;
     std::cout << "Example: " << argv[0] << " 1920 1080" << endl;
