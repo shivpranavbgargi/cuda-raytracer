@@ -2,7 +2,7 @@
 
 - [Abstract](#abstract)
 - [Hardware and Software](#hardware-and-software)
-- [Raytraced image](#ray-traced-image)
+- [Ray-traced image](#ray-traced-image)
 - [References](#references)
 
 ## Abstract
