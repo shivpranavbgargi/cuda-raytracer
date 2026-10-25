@@ -17,19 +17,23 @@ Implementation of a ray tracer using NVIDIA CUDA.
 
 [v1_gpu_image.ppm](docs/images/v1_gpu_image.ppm)
 
-![v1 .ppm image](docs/images/v1_gpu_image.jpg)
+![v1 .jpg image](docs/images/v1_gpu_image.jpg)
 
 ### V2 (Reflection - Single Bounce)
 
 [v2_gpu_image.ppm](docs/images/v2_gpu_image.ppm)
 
-![v2 .ppm image](docs/images/v2_gpu_image.jpg)
+![v2 .jpg image](docs/images/v2_gpu_image.jpg)
+
+![v2 .jpg image_zoomed](docs/images/v2_gpu_image_zoomed.jpg)
 
 ### V3 (Reflection - Multiple Bounce)
 
 [v3_gpu_image.ppm](docs/images/v3_gpu_image.ppm)
 
-![v3 .ppm image](docs/images/v3_gpu_image.jpg)
+![v3 .jpg image](docs/images/v3_gpu_image.jpg)
+
+![v3 .jpg image_zoomed](docs/images/v3_gpu_image_zoomed.jpg)
 
 ---
 
