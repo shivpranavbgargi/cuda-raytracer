@@ -2,7 +2,7 @@
 
 - [Abstract](#abstract)
 - [Hardware and Software](#hardware-and-software)
-- [Sample .ppm image using CUDA](#sample-.ppm-image-using-cuda)
+- [Raytraced image](#ray-traced-image)
 - [References](#references)
 
 ## Abstract
@@ -11,7 +11,7 @@ Implementation of a ray tracer using NVIDIA CUDA.
 
 ---
 
-## Sample .ppm image using CUDA
+## Ray-traced image
 
 ### V1 (Shadows)
 
@@ -27,7 +27,7 @@ Implementation of a ray tracer using NVIDIA CUDA.
 
 ![v2 .jpg image_zoomed](docs/images/v2_gpu_image_zoomed.jpg)
 
-### V3 (Reflection - Multiple Bounce)
+### V3 (Reflection - Multiple Bounces)
 
 [v3_gpu_image.ppm](docs/images/v3_gpu_image.ppm)
 
