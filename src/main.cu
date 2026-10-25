@@ -1,10 +1,12 @@
 #include "sphere.cuh"
 #include "vec3.cuh"
 #include <cmath>
+#include <cooperative_groups.h>
 #include <cuda.h>
 #include <iostream>
 
 using namespace std;
+namespace cg = cooperative_groups;
 
 __global__ void cuda_gen_gradient(int W, int H, int *out) {
   const float ALPHA = 255.999; // scaling factor
@@ -72,10 +74,12 @@ __host__ __device__ inline int closestHit(vec3 origin, vec3 dir, float &tHit,
   return best;
 }
 
-__host__ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, sphere *scene) {
+__device__ inline vec3 rayColor(vec3 origin, vec3 dir, sphere *scene,
+                                unsigned int bounce) {
   // TRY IT: move the light around and see how shading/shadows change.
   // x = right, y = up, z = toward the camera.
   vec3 lightPos(4, 6, 2);
+  float k = 0.2;
   float tHit;
   int hit = closestHit(origin, dir, tHit, scene, 4);
 
@@ -108,7 +112,14 @@ __host__ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, sphere *scene) {
   float shade = (blocked >= 0) ? 0.3f : 1.0f;
 
   float brightness = 0.15f + diffuse * shade; // 0.15 = a little ambient light
-  return base * brightness;
+                                              //
+  vec3 rDir = normalize(dir - (2 * dot(dir, n) * n));
+  if (bounce == 0) {
+    return base * brightness;
+  } else {
+    return (1 - k) * base * brightness +
+           k * rayColor(p + rDir * 0.01f, rDir, scene, bounce - 1);
+  }
 }
 
 __global__ void gen_scene_kernel(int W, int H, sphere *scene, int *out) {
@@ -133,7 +144,7 @@ __global__ void gen_scene_kernel(int W, int H, sphere *scene, int *out) {
     vec3 dir = normalize(vec3(u, v, -1.5f));
 
     // vec3 color = rayColor(cameraPos, dir, scene[0]);
-    vec3 color = rayColor(cameraPos, dir, scene);
+    vec3 color = rayColor(cameraPos, dir, scene, 1);
 
     auto r = (int)(fminf(color.x(), 1.0f) * 255);
     auto g = (int)(fminf(color.y(), 1.0f) * 255);
