@@ -81,47 +81,58 @@ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, sphere *scene,
   // TRY IT: move the light around and see how shading/shadows change.
   // x = right, y = up, z = toward the camera.
   vec3 lightPos(4, 6, 2);
-  float k = 0.2;
+  float k = 0.8;
   float tHit;
-  int hit = closestHit(origin, dir, tHit, scene, N);
+  vec3 color = vec3(0, 0, 0);
 
-  if (hit < 0) {
-    // Miss: draw a simple sky gradient (white near horizon -> blue up top).
-    float t = 0.5f * (dir.y() + 1.0f);
-    return vec3(1, 1, 1) * (1 - t) + vec3(0.4f, 0.6f, 1.0f) * t;
+  vec3 p = vec3(0, 0, 0);
+  vec3 n = vec3(0, 0, 0);
+
+  for (int i = 0; i < bounce; i++) {
+    int hit = closestHit(origin, dir, tHit, scene, N);
+
+    if (hit < 0) {
+      // Miss: draw a simple sky gradient (white near horizon -> blue up top).
+      float t = 0.5f * (dir.y() + 1.0f);
+      if (i == 0) {
+        color = color + (vec3(1, 1, 1) * (1 - t) + vec3(0.4f, 0.6f, 1.0f) * t);
+      } else {
+        color =
+            color + k * (vec3(1, 1, 1) * (1 - t) + vec3(0.4f, 0.6f, 1.0f) * t);
+      }
+      break;
+    }
+
+    p = origin + dir * tHit;
+    n = normalize(p - scene[hit].center);
+
+    // Base color: checkerboard for the floor, solid color otherwise.
+    vec3 base = scene[hit].color;
+    if (scene[hit].isFloor) {
+      int cx = (int)floor(p.x()), cz = (int)floor(p.z());
+      bool white = ((cx + cz) & 1) == 0;
+      base = white ? vec3(0.9f, 0.9f, 0.9f) : vec3(0.2f, 0.2f, 0.2f);
+    }
+
+    // Diffuse lighting: how directly does the surface face the light?
+    vec3 toLight = normalize(lightPos - p);
+    float diffuse = fmaxf(0.0f, dot(n, toLight));
+
+    // Hard shadow: shoot a ray toward the light; if it hits something, we're
+    // shadowed.
+    float shadowT;
+    int blocked = closestHit(p + n * 0.001f, toLight, shadowT, scene, N);
+    float shade = (blocked >= 0) ? 0.3f : 1.0f;
+
+    float brightness = 0.15f + diffuse * shade; // 0.15 = a little ambient light
+    color = color + k * base * brightness;
+
+    k = 0.2;
+    vec3 rDir = normalize(dir - (2 * dot(dir, n) * n));
+    origin = p + rDir * 0.01f;
+    dir = rDir;
   }
-
-  // The point we hit, and the surface normal there.
-  vec3 p = origin + dir * tHit;
-  vec3 n = normalize(p - scene[hit].center);
-
-  // Base color: checkerboard for the floor, solid color otherwise.
-  vec3 base = scene[hit].color;
-  if (scene[hit].isFloor) {
-    int cx = (int)floor(p.x()), cz = (int)floor(p.z());
-    bool white = ((cx + cz) & 1) == 0;
-    base = white ? vec3(0.9f, 0.9f, 0.9f) : vec3(0.2f, 0.2f, 0.2f);
-  }
-
-  // Diffuse lighting: how directly does the surface face the light?
-  vec3 toLight = normalize(lightPos - p);
-  float diffuse = fmaxf(0.0f, dot(n, toLight));
-
-  // Hard shadow: shoot a ray toward the light; if it hits something, we're
-  // shadowed.
-  float shadowT;
-  int blocked = closestHit(p + n * 0.001f, toLight, shadowT, scene, N);
-  float shade = (blocked >= 0) ? 0.3f : 1.0f;
-
-  float brightness = 0.15f + diffuse * shade; // 0.15 = a little ambient light
-                                              //
-  vec3 rDir = normalize(dir - (2 * dot(dir, n) * n));
-  if (bounce == 0) {
-    return base * brightness;
-  } else {
-    return (1 - k) * base * brightness +
-           k * rayColor(p + rDir * 0.01f, rDir, scene, bounce - 1);
-  }
+  return color;
 }
 
 __global__ void gen_scene_kernel(int W, int H, sphere *scene, int *out) {
@@ -157,13 +168,6 @@ __global__ void gen_scene_kernel(int W, int H, sphere *scene, int *out) {
     out[outIdx + 2] = pixel.z();
   }
 }
-
-// sphere hScene[4] = {
-//     {vec3(0, -1000.5f, -1), 1000.0f, vec3(0.5f, 0.5f, 0.5f), true}, //
-//     {vec3(0, 0.0f, -1), 0.5f, vec3(0.9f, 0.2f, 0.2f), false},
-//     {vec3(-1.1f, 0.0f, -1), 0.5f, vec3(0.2f, 0.7f, 0.3f), false},
-//     {vec3(1.1f, 0.0f, -1), 0.5f, vec3(0.2f, 0.4f, 0.9f), false},
-// };
 
 sphere hScene[N] = {
     {vec3(0, -1000.5f, -1), 1000.0f, vec3(0.5f, 0.5f, 0.5f), true},
