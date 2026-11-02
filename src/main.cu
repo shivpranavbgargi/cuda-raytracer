@@ -120,7 +120,7 @@ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, sphere *scene,
     return base * brightness;
   } else {
     return (1 - k) * base * brightness +
-           k * rayColor(p + rDir * 0.01f, rDir, scene, bounce - 1);
+           k * rayColor(p + n * 0.01f, rDir, scene, bounce - 1);
   }
 }
 
