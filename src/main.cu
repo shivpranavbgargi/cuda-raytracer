@@ -81,25 +81,21 @@ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, sphere *scene,
   // TRY IT: move the light around and see how shading/shadows change.
   // x = right, y = up, z = toward the camera.
   vec3 lightPos(4, 6, 2);
-  float k = 0.8;
+  float k = 1.0f;
   float tHit;
   vec3 color = vec3(0, 0, 0);
 
   vec3 p = vec3(0, 0, 0);
   vec3 n = vec3(0, 0, 0);
 
-  for (int i = 0; i < bounce; i++) {
+  for (unsigned int i = 0; i <= bounce; i++) {
     int hit = closestHit(origin, dir, tHit, scene, N);
 
     if (hit < 0) {
       // Miss: draw a simple sky gradient (white near horizon -> blue up top).
       float t = 0.5f * (dir.y() + 1.0f);
-      if (i == 0) {
-        color = color + (vec3(1, 1, 1) * (1 - t) + vec3(0.4f, 0.6f, 1.0f) * t);
-      } else {
-        color =
-            color + k * (vec3(1, 1, 1) * (1 - t) + vec3(0.4f, 0.6f, 1.0f) * t);
-      }
+      color =
+          color + k * (vec3(1, 1, 1) * (1 - t) + vec3(0.4f, 0.6f, 1.0f) * t);
       break;
     }
 
@@ -125,11 +121,11 @@ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, sphere *scene,
     float shade = (blocked >= 0) ? 0.3f : 1.0f;
 
     float brightness = 0.15f + diffuse * shade; // 0.15 = a little ambient light
-    color = color + k * base * brightness;
+    color = color + k * 0.8f * base * brightness;
+    k *= 0.2f;
 
-    k = 0.2;
     vec3 rDir = normalize(dir - (2 * dot(dir, n) * n));
-    origin = p + rDir * 0.01f;
+    origin = p + n * 0.01f;
     dir = rDir;
   }
   return color;
