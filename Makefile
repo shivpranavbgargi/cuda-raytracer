@@ -1,12 +1,14 @@
 NVCC = nvcc
 GPP = g++
+
 BUILD_DIR = bin
 TEST_DIR := tests
 SRC_DIR := src
 
-CPU_CFLAGS = -O3 -ffp-contract=off
+CPU_CFLAGS = -O3
 TEST_CFLAGS = -O3
-GPU_CFLAGS = -O3 --fmad=false
+GPU_CFLAGS = -O3
+PERF_FLAGS = -O3 -lineinfo
 DEBUG_FLAGS = -O3 -lineinfo
 
 SRC = $(ROOT)/$(SRC_DIR)/main.cu
@@ -18,10 +20,15 @@ DEBUG_TARGET = $(BUILD_DIR)/$(DEBUG_GPU_BIN)
 CPU_TARGET = $(BUILD_DIR)/$(CPU_BIN)
 TEST_TARGET = $(BUILD_DIR)/tests
 
-.PHONY: all clean
+.PHONY: all clean debug perf test FORCE
 
 all: $(TARGET) $(CPU_TARGET)
+
 debug: $(DEBUG_TARGET)
+
+perf: FORCE | $(BUILD_DIR)
+	$(NVCC) $(PERF_FLAGS) $(SRC) -o $(TARGET) -I$(ROOT)/include/ -DPERF
+
 test: $(TARGET) $(CPU_TARGET) $(TEST_TARGET)
 
 $(BUILD_DIR):
@@ -37,8 +44,10 @@ $(CPU_TARGET): $(SRC_C) | $(BUILD_DIR)
 	$(GPP) $(CPU_CFLAGS) $(SRC_C) -o $@ -I$(ROOT)/include/
 
 $(TEST_TARGET): $(SRC_TEST) | $(BUILD_DIR)
-	$(GPP) $(TEST_CFLAGS) $(SRC_TEST) -o $@ -I$(ROOT)/include/
+	$(GPP) $(TEST_CFLAGS) $(SRC_TEST) -o $@ -I$(ROOT)/include/ -DVERBOSE
 	./$(BUILD_DIR)/tests
+
+FORCE:
 
 clean:
 	rm -rf $(BUILD_DIR)
