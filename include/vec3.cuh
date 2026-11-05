@@ -7,20 +7,18 @@
 #include <device_launch_parameters.h>
 #include <iostream>
 
-#define NUM_SUBPIX 4
+#define NUM_SUBPIX 3
 
 class vec3 {
 public:
-  float e[4];
+  float e[3];
 
-  vec3() : e{0, 0, 0, 0} {}
-  __host__ __device__ vec3(float e0, float e1, float e2)
-      : e{e0, e1, e2, 255.0f} {}
+  vec3() : e{0, 0, 0} {}
+  __host__ __device__ vec3(float e0, float e1, float e2) : e{e0, e1, e2} {}
 
   __host__ __device__ float x() const { return e[0]; }
   __host__ __device__ float y() const { return e[1]; }
   __host__ __device__ float z() const { return e[2]; }
-  __host__ __device__ float w() const { return e[3]; }
 
   vec3 operator-() const { return vec3(-e[0], -e[1], -e[2]); }
   float operator[](int i) const { return e[i]; }
@@ -80,7 +78,6 @@ __host__ __device__ inline vec3 operator/(const vec3 &v, float t) {
 }
 
 __host__ __device__ inline float dot(const vec3 &u, const vec3 &v) {
-  // return u.e[0] * v.e[0] + u.e[1] * v.e[1] + u.e[2] * v.e[2];
   return fmaf(u.e[0], v.e[0], fmaf(u.e[1], v.e[1], u.e[2] * v.e[2]));
 }
 
