@@ -77,7 +77,7 @@ __device__ bool hitAABB(const vec3 &origin, const vec3 &dir, const vec3 &bMin,
 }
 
 __device__ int closestHitBVH(const vec3 &origin, const vec3 &dir, float &tHit,
-                             const flatBvhNode *nodes, const spheres &scene) {
+                             const flatBvhNode *nodes, const sphere *scene) {
   int stack[MAX_BVH_DEPTH];
   int stackSize = 0;
 
@@ -100,7 +100,7 @@ __device__ int closestHitBVH(const vec3 &origin, const vec3 &dir, float &tHit,
 
     if (node.sphereIdx >= 0) {
       int idx = node.sphereIdx;
-      float t = hitSphere(scene.center[idx], scene.radius[idx], origin, dir);
+      float t = hitSphere(scene[idx].center, scene[idx].radius, origin, dir);
       if (t > 0.0f && t < tHit) {
         tHit = t;
         closestIdx = idx;
@@ -117,7 +117,7 @@ __device__ int closestHitBVH(const vec3 &origin, const vec3 &dir, float &tHit,
   return closestIdx;
 }
 
-__device__ inline vec3 rayColorBVH(vec3 origin, vec3 dir, spheres &scene,
+__device__ inline vec3 rayColorBVH(vec3 origin, vec3 dir, sphere *scene,
                                    flatBvhNode *nodes, unsigned int bounce) {
   vec3 lightPos(4, 6, 2);
   float k = 1.0f;
@@ -139,11 +139,11 @@ __device__ inline vec3 rayColorBVH(vec3 origin, vec3 dir, spheres &scene,
     }
 
     p = origin + dir * tHit;
-    n = normalize(p - scene.center[hit]);
+    n = normalize(p - scene[hit].center);
 
     // Base color: checkerboard for the floor, solid color otherwise.
-    vec3 base = scene.color[hit];
-    if (scene.isFloor[hit]) {
+    vec3 base = scene[hit].color;
+    if (scene[hit].isFloor) {
       int cx = (int)floor(p.x()), cz = (int)floor(p.z());
       bool white = ((cx + cz) & 1) == 0;
       base = white ? vec3(0.9f, 0.9f, 0.9f) : vec3(0.2f, 0.2f, 0.2f);
@@ -172,7 +172,7 @@ __device__ inline vec3 rayColorBVH(vec3 origin, vec3 dir, spheres &scene,
   return color;
 }
 
-__global__ void gen_scene_kernel(int W, int H, spheres *scene,
+__global__ void gen_scene_kernel(int W, int H, sphere *scene,
                                  flatBvhNode *BVHTree, int *out) {
 
   int px = blockDim.x * blockIdx.x + threadIdx.x;
@@ -209,7 +209,7 @@ __global__ void gen_scene_kernel(int W, int H, spheres *scene,
     vec3 cameraPos = vec3(0, 1, 3);
     vec3 dir = normalize(vec3(u, v, -1.5f));
 
-    vec3 color = rayColorBVH(cameraPos, dir, *scene, BVHTree, 7);
+    vec3 color = rayColorBVH(cameraPos, dir, scene, BVHTree, 7);
 
     // vec3 color = rayColorBVH(cameraPos, dir, sh_scene, BVHTree, 7);
     // vec3 color = rayColorBVH(cameraPos, dir, *scene, sh_nodes, 7);
@@ -1358,10 +1358,10 @@ void gen_scene(int W, int H) {
   cudaMemcpy(dBvhTree, flatNodes, sizeof(flatBvhNode) * (2 * N - 1),
              cudaMemcpyHostToDevice);
 
-  spheres hSpheres(hScene, N);
-  spheres *dScene;
-  cudaMalloc(&dScene, sizeof(spheres));
-  cudaMemcpy(dScene, &hSpheres, sizeof(spheres), cudaMemcpyHostToDevice);
+  // spheres hSpheres(hScene, N);
+  sphere *dScene;
+  cudaMalloc(&dScene, sizeof(hScene));
+  cudaMemcpy(dScene, &hScene, sizeof(hScene), cudaMemcpyHostToDevice);
 
   int *hPpm, *dPpm;
   hPpm = (int *)malloc(NUM_SUBPIX * H * W * sizeof(int));
