@@ -24,11 +24,11 @@ hitSphere(const vec3 &center, const float radius, const vec3 origin, vec3 dir) {
 }
 
 __host__ __device__ inline int closestHit(vec3 origin, vec3 dir, float &tHit,
-                                          spheres &scene, int size) {
+                                          sphere *scene, int size) {
   int best = -1;
   float closest = 1e30f;
   for (int i = 0; i < size; i++) {
-    float t = hitSphere(scene.center[i], scene.radius[i], origin, dir);
+    float t = hitSphere(scene[i].center, scene[i].radius, origin, dir);
     if (t > 0 && t < closest) {
       closest = t;
       best = i;
@@ -38,7 +38,7 @@ __host__ __device__ inline int closestHit(vec3 origin, vec3 dir, float &tHit,
   return best;
 }
 
-__device__ inline vec3 rayColor(vec3 origin, vec3 dir, spheres &scene,
+__device__ inline vec3 rayColor(vec3 origin, vec3 dir, sphere *scene,
                                 unsigned int bounce) {
   // TRY IT: move the light around and see how shading/shadows change.
   // x = right, y = up, z = toward the camera.
@@ -62,11 +62,11 @@ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, spheres &scene,
     }
 
     p = origin + dir * tHit;
-    n = normalize(p - scene.center[hit]);
+    n = normalize(p - scene[hit].center);
 
     // Base color: checkerboard for the floor, solid color otherwise.
-    vec3 base = scene.color[hit];
-    if (scene.isFloor[hit]) {
+    vec3 base = scene[hit].color;
+    if (scene[hit].isFloor) {
       int cx = (int)floor(p.x()), cz = (int)floor(p.z());
       bool white = ((cx + cz) & 1) == 0;
       base = white ? vec3(0.9f, 0.9f, 0.9f) : vec3(0.2f, 0.2f, 0.2f);
@@ -93,7 +93,7 @@ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, spheres &scene,
   return color;
 }
 
-__global__ void gen_scene_kernel(int W, int H, spheres *scene, int *out) {
+__global__ void gen_scene_kernel(int W, int H, sphere *scene, int *out) {
 
   int px = blockDim.x * blockIdx.x + threadIdx.x;
   int py = blockDim.y * blockIdx.y + threadIdx.y;
@@ -113,7 +113,7 @@ __global__ void gen_scene_kernel(int W, int H, spheres *scene, int *out) {
     vec3 cameraPos = vec3(0, 1, 3);
     vec3 dir = normalize(vec3(u, v, -1.5f));
 
-    vec3 color = rayColor(cameraPos, dir, *scene, 7);
+    vec3 color = rayColor(cameraPos, dir, scene, 7);
 
     unsigned int r = (unsigned int)(fminf(color.x(), 1.0f) * 255);
     unsigned int g = (unsigned int)(fminf(color.y(), 1.0f) * 255);
@@ -1127,10 +1127,9 @@ sphere hScene[N] = {
 };
 
 void gen_scene(int W, int H) {
-  spheres *dScene;
-  spheres hSpheres(hScene, N);
-  cudaMalloc(&dScene, sizeof(spheres));
-  cudaMemcpy(dScene, &hSpheres, sizeof(spheres), cudaMemcpyHostToDevice);
+  sphere *dScene;
+  cudaMalloc(&dScene, sizeof(hScene));
+  cudaMemcpy(dScene, &hScene, sizeof(hScene), cudaMemcpyHostToDevice);
 
   int *hPpm, *dPpm;
   hPpm = (int *)malloc(NUM_SUBPIX * H * W * sizeof(int));
