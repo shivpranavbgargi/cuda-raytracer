@@ -91,6 +91,14 @@ __host__ inline vec3 cross(const vec3 &u, const vec3 &v) {
               u.e[0] * v.e[1] - u.e[1] * v.e[0]);
 }
 
+__host__ __device__ vec3 minVec3(const vec3 &u, const vec3 &v) {
+  return vec3(fminf(u.x(), v.x()), fminf(u.y(), v.y()), fminf(u.z(), v.z()));
+}
+
+__host__ __device__ vec3 maxVec3(const vec3 &u, const vec3 &v) {
+  return vec3(fmaxf(u.x(), v.x()), fmaxf(u.y(), v.y()), fmaxf(u.z(), v.z()));
+}
+
 __device__ inline vec3 unit_vector(const vec3 &v) { return v / v.length(); }
 
 #endif

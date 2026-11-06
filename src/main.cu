@@ -1,14 +1,16 @@
+#include "bvh.cuh"
 #include "sphere.cuh"
 #include "vec3.cuh"
+#include <cfloat>
 #include <cmath>
 #include <cooperative_groups.h>
 #include <cuda.h>
 #include <iostream>
 
 using namespace std;
-namespace cg = cooperative_groups;
 
 #define N 501
+#define MAX_BVH_DEPTH 32
 
 __host__ __device__ inline float
 hitSphere(const vec3 &center, const float radius, const vec3 origin, vec3 dir) {
@@ -23,25 +25,100 @@ hitSphere(const vec3 &center, const float radius, const vec3 origin, vec3 dir) {
   return (t > 0.001f) ? t : -1.0f;
 }
 
-__host__ __device__ inline int closestHit(vec3 origin, vec3 dir, float &tHit,
-                                          spheres &scene, int size) {
-  int best = -1;
-  float closest = 1e30f;
-  for (int i = 0; i < size; i++) {
-    float t = hitSphere(scene.center[i], scene.radius[i], origin, dir);
-    if (t > 0 && t < closest) {
-      closest = t;
-      best = i;
+__device__ bool hitAABB(const vec3 &origin, const vec3 &dir, const vec3 &bMin,
+                        const vec3 &bMax, float &tEnter, float &tExit) {
+  tEnter = 0.0f;
+  tExit = FLT_MAX;
+
+  for (int axis = 0; axis < 3; axis++) {
+    float o, d, mn, mx;
+
+    if (axis == 0) {
+      o = origin.x();
+      d = dir.x();
+      mn = bMin.x();
+      mx = bMax.x();
+    } else if (axis == 1) {
+      o = origin.y();
+      d = dir.y();
+      mn = bMin.y();
+      mx = bMax.y();
+    } else {
+      o = origin.z();
+      d = dir.z();
+      mn = bMin.z();
+      mx = bMax.z();
     }
+
+    if (d == 0.0f) {
+      if (o < mn || o > mx)
+        return false;
+
+      continue;
+    }
+
+    float t1 = (mn - o) / d;
+    float t2 = (mx - o) / d;
+
+    if (t1 > t2) {
+      float tmp = t1;
+      t1 = t2;
+      t2 = tmp;
+    }
+
+    tEnter = fmaxf(tEnter, t1);
+    tExit = fminf(tExit, t2);
+
+    if (tEnter > tExit)
+      return false;
   }
-  tHit = closest;
-  return best;
+
+  return true;
 }
 
-__device__ inline vec3 rayColor(vec3 origin, vec3 dir, spheres &scene,
-                                unsigned int bounce) {
-  // TRY IT: move the light around and see how shading/shadows change.
-  // x = right, y = up, z = toward the camera.
+__device__ int closestHitBVH(const vec3 &origin, const vec3 &dir, float &tHit,
+                             const flatBvhNode *nodes, const spheres &scene) {
+  int stack[MAX_BVH_DEPTH];
+  int stackSize = 0;
+
+  int closestIdx = -1;
+  tHit = FLT_MAX;
+
+  stack[stackSize++] = 0;
+
+  while (stackSize > 0) {
+
+    int nodeIdx = stack[--stackSize];
+    const flatBvhNode &node = nodes[nodeIdx];
+    float tEnter, tExit;
+
+    if (!hitAABB(origin, dir, node.bMin, node.bMax, tEnter, tExit))
+      continue;
+
+    if (tEnter > tHit)
+      continue;
+
+    if (node.sphereIdx >= 0) {
+      int idx = node.sphereIdx;
+      float t = hitSphere(scene.center[idx], scene.radius[idx], origin, dir);
+      if (t > 0.0f && t < tHit) {
+        tHit = t;
+        closestIdx = idx;
+      }
+    } else {
+      if (stackSize + 2 > MAX_BVH_DEPTH) {
+        return -1;
+      }
+      stack[stackSize++] = node.right;
+      stack[stackSize++] = node.left;
+    }
+  }
+
+  return closestIdx;
+}
+
+__device__ inline vec3 rayColorBVH(vec3 origin, vec3 dir, spheres &scene,
+                                   flatBvhNode *nodes, unsigned int bounce) {
   vec3 lightPos(4, 6, 2);
   float k = 1.0f;
   float tHit;
@@ -51,7 +128,7 @@ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, spheres &scene,
   vec3 n = vec3(0, 0, 0);
 
   for (unsigned int i = 0; i <= bounce; i++) {
-    int hit = closestHit(origin, dir, tHit, scene, N);
+    int hit = closestHitBVH(origin, dir, tHit, nodes, scene);
 
     if (hit < 0) {
       // Miss: draw a simple sky gradient (white near horizon -> blue up top).
@@ -79,7 +156,9 @@ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, spheres &scene,
     // Hard shadow: shoot a ray toward the light; if it hits something, we're
     // shadowed.
     float shadowT;
-    int blocked = closestHit(p + n * 0.001f, toLight, shadowT, scene, N);
+    // int blocked = closestHitBVH(p + n * 0.001f, toLight, shadowT, nodes,
+    // scene);
+    int blocked = closestHitBVH(p + n * 0.001f, toLight, shadowT, nodes, scene);
     float shade = (blocked >= 0) ? 0.3f : 1.0f;
 
     float brightness = 0.15f + diffuse * shade; // 0.15 = a little ambient light
@@ -93,10 +172,12 @@ __device__ inline vec3 rayColor(vec3 origin, vec3 dir, spheres &scene,
   return color;
 }
 
-__global__ void gen_scene_kernel(int W, int H, spheres *scene, int *out) {
+__global__ void gen_scene_kernel(int W, int H, spheres *scene,
+                                 flatBvhNode *BVHTree, int *out) {
 
   int px = blockDim.x * blockIdx.x + threadIdx.x;
   int py = blockDim.y * blockIdx.y + threadIdx.y;
+
 #ifdef DEBUG
   for (int i = 0; i < 4; i++) {
     printf(
@@ -107,13 +188,31 @@ __global__ void gen_scene_kernel(int W, int H, spheres *scene, int *out) {
   }
 #endif
   if (py < H && px < W) {
+
+    // const int tid = threadIdx.y * blockDim.x + threadIdx.x;
+
+    // __shared__ flatBvhNode sh_nodes[2 * N - 1];
+    // __shared__ spheres sh_scene;
+
+    // for (int i = tid; i < N; i += 32 * 8) {
+    //   // sh_nodes[i] = BVHTree[i];
+    //   sh_scene.center[i] = scene->center[i];
+    //   sh_scene.radius[i] = scene->radius[i];
+    //   sh_scene.color[i] = scene->color[i];
+    //   sh_scene.isFloor[i] = scene->isFloor[i];
+    // }
+    // __syncthreads();
+
     float u = (2.0f * (px + 0.5f) / W - 1.0f) * (float)W / H;
     float v = (1.0f - 2.0f * (py + 0.5f) / H);
 
     vec3 cameraPos = vec3(0, 1, 3);
     vec3 dir = normalize(vec3(u, v, -1.5f));
 
-    vec3 color = rayColor(cameraPos, dir, *scene, 7);
+    vec3 color = rayColorBVH(cameraPos, dir, *scene, BVHTree, 7);
+
+    // vec3 color = rayColorBVH(cameraPos, dir, sh_scene, BVHTree, 7);
+    // vec3 color = rayColorBVH(cameraPos, dir, *scene, sh_nodes, 7);
 
     unsigned int r = (unsigned int)(fminf(color.x(), 1.0f) * 255);
     unsigned int g = (unsigned int)(fminf(color.y(), 1.0f) * 255);
@@ -1126,9 +1225,141 @@ sphere hScene[N] = {
      false},
 };
 
+int flattenBVH(bvhNode *node, flatBvhNode *flatNodes, int &nextIndex) {
+
+  int currentIndex = nextIndex++;
+
+  // cout << "Current Index: " << currentIndex << endl;
+  flatNodes[currentIndex].bMin = node->bMin;
+  flatNodes[currentIndex].bMax = node->bMax;
+
+  if (node->isLeaf) {
+    flatNodes[currentIndex].left = -1;
+    flatNodes[currentIndex].right = -1;
+    flatNodes[currentIndex].sphereIdx = node->sphereIdx;
+    return currentIndex;
+  }
+
+  int leftIndex = flattenBVH(node->left, flatNodes, nextIndex);
+  int rightIndex = flattenBVH(node->right, flatNodes, nextIndex);
+
+  flatNodes[currentIndex].left = leftIndex;
+  flatNodes[currentIndex].right = rightIndex;
+
+  flatNodes[currentIndex].sphereIdx = -1;
+
+  return currentIndex;
+}
+
+__host__ inline bvhNode *buildTree(bvhPrimitive *primitives, int count) {
+
+  if (count <= 0)
+    return nullptr;
+
+  bvhNode *node = new bvhNode();
+
+  vec3 bMin = vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+  vec3 bMax = vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+  vec3 centroidMin = vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+  vec3 centroidMax = vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+
+  for (int i = 0; i < count; i++) {
+    bMin = minVec3(bMin, primitives[i].bMin);
+    bMax = maxVec3(bMax, primitives[i].bMax);
+
+    centroidMin = minVec3(centroidMin, primitives[i].centroid);
+    centroidMax = maxVec3(centroidMax, primitives[i].centroid);
+  }
+
+  node->bMin = bMin;
+  node->bMax = bMax;
+
+  if (count == 1) {
+    node->sphereIdx = primitives[0].sphereIdx;
+    node->isLeaf = true;
+    return node;
+  }
+
+  node->isLeaf = false;
+
+  vec3 extent = centroidMax - centroidMin;
+
+  unsigned int axis = 0;
+
+  if (extent.y() > extent.x())
+    axis = 1;
+
+  if (extent.z() > extent[axis])
+    axis = 2;
+
+  for (int i = 0; i < count; i++) {
+    for (int j = i + 1; j < count; j++) {
+      float c1;
+      float c2;
+      if (axis == 0) {
+        c1 = primitives[i].centroid.x();
+        c2 = primitives[j].centroid.x();
+      } else if (axis == 1) {
+        c1 = primitives[i].centroid.y();
+        c2 = primitives[j].centroid.y();
+      } else {
+        c1 = primitives[i].centroid.z();
+        c2 = primitives[j].centroid.z();
+      }
+
+      if (c2 < c1) {
+        bvhPrimitive tmp = primitives[i];
+        primitives[i] = primitives[j];
+        primitives[j] = tmp;
+      }
+    }
+  }
+
+  unsigned int mid = count / 2;
+  node->left = buildTree(primitives, mid);
+  node->right = buildTree(primitives + mid, count - mid);
+
+  return node;
+}
+
+__host__ inline void buildBVH(flatBvhNode flatNodes[2 * N - 1]) {
+  bvhPrimitive primitives[N];
+  for (int i = 0; i < N; i++) {
+    vec3 bMin = vec3(hScene[i].center.x() - hScene[i].radius,
+                     hScene[i].center.y() - hScene[i].radius,
+                     hScene[i].center.z() - hScene[i].radius);
+
+    vec3 bMax = vec3(hScene[i].center.x() + hScene[i].radius,
+                     hScene[i].center.y() + hScene[i].radius,
+                     hScene[i].center.z() + hScene[i].radius);
+
+    vec3 centroid = hScene[i].center;
+
+    primitives[i] = bvhPrimitive(bMin, bMax, centroid, i);
+  }
+
+  int currIdx = 0;
+
+  bvhNode *root = buildTree(primitives, N);
+  if (root == nullptr) {
+    printf("Something went wrong\n");
+  }
+
+  flattenBVH(buildTree(primitives, N), flatNodes, currIdx);
+}
+
 void gen_scene(int W, int H) {
-  spheres *dScene;
+
+  flatBvhNode *dBvhTree;
+  flatBvhNode flatNodes[2 * N - 1];
+  buildBVH(flatNodes);
+  cudaMalloc(&dBvhTree, sizeof(flatBvhNode) * (2 * N - 1));
+  cudaMemcpy(dBvhTree, flatNodes, sizeof(flatBvhNode) * (2 * N - 1),
+             cudaMemcpyHostToDevice);
+
   spheres hSpheres(hScene, N);
+  spheres *dScene;
   cudaMalloc(&dScene, sizeof(spheres));
   cudaMemcpy(dScene, &hSpheres, sizeof(spheres), cudaMemcpyHostToDevice);
 
@@ -1144,7 +1375,7 @@ void gen_scene(int W, int H) {
 #ifdef PERF
   // Warm up runs (maybe too many iters)
   for (int i = 0; i < 10; i++) {
-    gen_scene_kernel<<<grid, block>>>(W, H, dScene, dPpm);
+    gen_scene_kernel<<<grid, block>>>(W, H, dScene, dBvhTree, dPpm);
   }
   cudaDeviceSynchronize();
 
@@ -1155,7 +1386,7 @@ void gen_scene(int W, int H) {
   cudaEventCreate(&stop);
   cudaEventRecord(start, 0);
   for (int i = 0; i < iters; i++) {
-    gen_scene_kernel<<<grid, block>>>(W, H, dScene, dPpm);
+    gen_scene_kernel<<<grid, block>>>(W, H, dScene, dBvhTree, dPpm);
   }
   cudaEventRecord(stop, 0);
   cudaEventSynchronize(stop);
@@ -1166,7 +1397,7 @@ void gen_scene(int W, int H) {
   cudaEventDestroy(stop);
 #endif
 
-  gen_scene_kernel<<<grid, block>>>(W, H, dScene, dPpm);
+  gen_scene_kernel<<<grid, block>>>(W, H, dScene, dBvhTree, dPpm);
   cudaMemcpy(hPpm, dPpm, NUM_SUBPIX * H * W * sizeof(int),
              cudaMemcpyDeviceToHost); // this takes care of sync, no need of CDS
 

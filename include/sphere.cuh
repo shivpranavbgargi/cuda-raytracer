@@ -21,6 +21,16 @@ public:
   vec3 color[501];
   bool isFloor[501];
 
+  spheres() {}
+  __host__ __device__ spheres(int count) {
+    for (int i = 0; i < 501; i++) {
+      center[i] = vec3(0, 0, 0);
+      radius[i] = 0.0f;
+      color[i] = vec3(0, 0, 0);
+      isFloor[i] = false;
+    }
+  }
+
   __host__ __device__ spheres(const sphere *spheres, int count) {
     for (int i = 0; i < count; i++) {
       center[i] = spheres[i].center;
