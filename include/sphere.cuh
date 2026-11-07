@@ -9,6 +9,12 @@ public:
   float radius;
   vec3 color;
   bool isFloor;
+  volatile bool padding1;
+  volatile bool padding2;
+  volatile bool padding3;
+  __host__ __device__ sphere()
+      : center{vec3(0, 0, 0)}, radius{0.0f}, color{vec3(0, 0, 0)},
+        isFloor{false} {}
   __host__ __device__ sphere(vec3 center, float radius, vec3 color,
                              bool isFloor)
       : center{center}, radius{radius}, color{color}, isFloor{isFloor} {}

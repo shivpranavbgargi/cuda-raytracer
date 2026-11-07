@@ -39,7 +39,6 @@ public:
   int left;
   int right;
   int sphereIdx;
-  volatile float padding[3];
 };
 
 class bvh {
