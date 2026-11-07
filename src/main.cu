@@ -25,8 +25,8 @@ hitSphere(const vec3 &center, const float radius, const vec3 origin, vec3 dir) {
   return (t > 0.001f) ? t : -1.0f;
 }
 
-__device__ bool hitAABB(const vec3 &origin, const vec3 &dir, const vec3 &bMin,
-                        const vec3 &bMax, float &tEnter, float &tExit) {
+__device__ bool hitAABB(const vec3 &origin, const vec3 &dir, const vec3 &aabbMin,
+                        const vec3 &aabbMax, float &tEnter, float &tExit) {
   tEnter = 0.0f;
   tExit = FLT_MAX;
 
@@ -36,18 +36,18 @@ __device__ bool hitAABB(const vec3 &origin, const vec3 &dir, const vec3 &bMin,
     if (axis == 0) {
       o = origin.x();
       d = dir.x();
-      mn = bMin.x();
-      mx = bMax.x();
+      mn = aabbMin.x();
+      mx = aabbMax.x();
     } else if (axis == 1) {
       o = origin.y();
       d = dir.y();
-      mn = bMin.y();
-      mx = bMax.y();
+      mn = aabbMin.y();
+      mx = aabbMax.y();
     } else {
       o = origin.z();
       d = dir.z();
-      mn = bMin.z();
-      mx = bMax.z();
+      mn = aabbMin.z();
+      mx = aabbMax.z();
     }
 
     if (d == 0.0f) {
@@ -92,7 +92,7 @@ __device__ int closestHitBVH(const vec3 &origin, const vec3 &dir, float &tHit,
     const flatBvhNode &node = nodes[nodeIdx];
     float tEnter, tExit;
 
-    if (!hitAABB(origin, dir, node.bMin, node.bMax, tEnter, tExit))
+    if (!hitAABB(origin, dir, node.aabbMin, node.aabbMax, tEnter, tExit))
       continue;
 
     if (tEnter > tHit)
@@ -1230,8 +1230,8 @@ int flattenBVH(bvhNode *node, flatBvhNode *flatNodes, int &nextIndex) {
   int currentIndex = nextIndex++;
 
   // cout << "Current Index: " << currentIndex << endl;
-  flatNodes[currentIndex].bMin = node->bMin;
-  flatNodes[currentIndex].bMax = node->bMax;
+  flatNodes[currentIndex].aabbMin = node->aabbMin;
+  flatNodes[currentIndex].aabbMax = node->aabbMax;
 
   if (node->isLeaf) {
     flatNodes[currentIndex].left = -1;
@@ -1258,22 +1258,22 @@ __host__ inline bvhNode *buildTree(bvhPrimitive *primitives, int count) {
 
   bvhNode *node = new bvhNode();
 
-  vec3 bMin = vec3(FLT_MAX, FLT_MAX, FLT_MAX);
-  vec3 bMax = vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
+  vec3 aabbMin = vec3(FLT_MAX, FLT_MAX, FLT_MAX);
+  vec3 aabbMax = vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 
   vec3 centroidMin = vec3(FLT_MAX, FLT_MAX, FLT_MAX);
   vec3 centroidMax = vec3(-FLT_MAX, -FLT_MAX, -FLT_MAX);
 
   for (int i = 0; i < count; i++) {
-    bMin = minVec3(bMin, primitives[i].bMin);
-    bMax = maxVec3(bMax, primitives[i].bMax);
+    aabbMin = minVec3(aabbMin, primitives[i].aabbMin);
+    aabbMax = maxVec3(aabbMax, primitives[i].aabbMax);
 
     centroidMin = minVec3(centroidMin, primitives[i].centroid);
     centroidMax = maxVec3(centroidMax, primitives[i].centroid);
   }
 
-  node->bMin = bMin;
-  node->bMax = bMax;
+  node->aabbMin = aabbMin;
+  node->aabbMax = aabbMax;
 
   if (count == 1) {
     node->sphereIdx = primitives[0].sphereIdx;
@@ -1326,17 +1326,17 @@ __host__ inline bvhNode *buildTree(bvhPrimitive *primitives, int count) {
 __host__ inline void buildBVH(flatBvhNode flatNodes[2 * N - 1]) {
   bvhPrimitive primitives[N];
   for (int i = 0; i < N; i++) {
-    vec3 bMin = vec3(hScene[i].center.x() - hScene[i].radius,
+    vec3 aabbMin = vec3(hScene[i].center.x() - hScene[i].radius,
                      hScene[i].center.y() - hScene[i].radius,
                      hScene[i].center.z() - hScene[i].radius);
 
-    vec3 bMax = vec3(hScene[i].center.x() + hScene[i].radius,
+    vec3 aabbMax = vec3(hScene[i].center.x() + hScene[i].radius,
                      hScene[i].center.y() + hScene[i].radius,
                      hScene[i].center.z() + hScene[i].radius);
 
     vec3 centroid = hScene[i].center;
 
-    primitives[i] = bvhPrimitive(bMin, bMax, centroid, i);
+    primitives[i] = bvhPrimitive(aabbMin, aabbMax, centroid, i);
   }
 
   int currIdx = 0;
