@@ -59,3 +59,4 @@ Implementation of a ray tracer using NVIDIA CUDA.
 ## References
 
 - [Ray Tracing in One Weekend](https://raytracing.github.io/books/RayTracingInOneWeekend.html)
+- [How to build a BVH](https://jacco.ompf2.com/2022/04/13/how-to-build-a-bvh-part-1-basics/)
