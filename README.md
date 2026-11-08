@@ -8,9 +8,10 @@
 
 ## How to run
 
-```. envesetup.sh
-   make
-   ./bin/main_gpu 3840 2160
+```
+. envesetup.sh
+make
+./bin/main_gpu 3840 2160
 ```
 
 The generated image is saved in ./results/gpu_image.ppm
