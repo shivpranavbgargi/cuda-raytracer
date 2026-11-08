@@ -7,9 +7,11 @@
 - [References](#references)
 
 ## How to run
+After cloning the repo
 
 ```
-. envesetup.sh
+cd cuda-raytracer
+source envsetup.sh
 make
 ./bin/main_gpu 3840 2160
 ```
