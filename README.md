@@ -1,9 +1,20 @@
 # CUDA Ray Tracer
 
+- [How to run](#how-to-run)
 - [Abstract](#abstract)
 - [Hardware and Software](#hardware-and-software)
 - [Ray-traced image](#ray-traced-image)
 - [References](#references)
+
+## How to run
+
+```. envesetup.sh
+   make
+   ./bin/main_gpu 3840 2160
+```
+
+The generated image is saved in ./results/gpu_image.ppm
+---
 
 ## Abstract
 
